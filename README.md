@@ -47,6 +47,8 @@ BWifiKill ESP32 V4.0 es una suite portatil para laboratorio, aprendizaje y audit
   <img src="img/diagramas/arquitectura-firmware.svg" width="78%" alt="Arquitectura del firmware">
 </p>
 
+<p align="right"><a href="#indice">Regresar al indice</a></p>
+
 ## Hardware necesario
 
 | Componente | Cantidad | Notas |
@@ -67,6 +69,8 @@ BWifiKill ESP32 V4.0 es una suite portatil para laboratorio, aprendizaje y audit
   <img src="img/componentes/Pines_pantalla.png" width="23%" alt="Pantalla OLED">
   <img src="img/componentes/placapcb.png" width="23%" alt="PCB">
 </p>
+
+<p align="right"><a href="#indice">Regresar al indice</a></p>
 
 ## Conexion del hardware
 
@@ -138,6 +142,8 @@ Los dos nRF comparten el bus SPI. Solo cambian `CE` y `CSN`.
   <img src="img/componentes/interruptor.png" width="23%" alt="Interruptor">
 </p>
 
+<p align="right"><a href="#indice">Regresar al indice</a></p>
+
 ## Galeria
 
 ### Categorias
@@ -164,6 +170,8 @@ Los dos nRF comparten el bus SPI. Solo cambian `CE` y `CSN`.
 | --- | --- | --- |
 | <img src="img/Firmware/system/about.JPG" width="260" alt="About"> | <img src="img/Firmware/games/pong.JPG" width="260" alt="Pong"> | <img src="img/Firmware/ilegal/evil-portal.JPG" width="260" alt="Evil Portal"> |
 | <img src="img/Firmware/system/logs.JPG" width="260" alt="Logs"> | <img src="img/Firmware/games/flappy.JPG" width="260" alt="Flappy"> | <img src="img/Firmware/ilegal/ble-spam.JPG" width="260" alt="BLE Spam"> |
+
+<p align="right"><a href="#indice">Regresar al indice</a></p>
 
 ## Funciones del firmware
 
@@ -232,6 +240,8 @@ Estas funciones existen para pruebas controladas y educacion. No deben ejecutars
 | Leer Logs | Visor local de logs guardados en memoria interna. |
 | About | Informacion de version, autor y redes sociales. |
 
+<p align="right"><a href="#indice">Regresar al indice</a></p>
+
 ## Instalacion y flasheo
 
 ### Metodo 1: Web Flasher
@@ -273,6 +283,8 @@ Si usas VS Code:
 3. Conecta el ESP32.
 4. Presiona `Upload`.
 
+<p align="right"><a href="#indice">Regresar al indice</a></p>
+
 ## Web Flasher
 
 El proyecto incluye un instalador web basado en ESP Web Tools:
@@ -286,6 +298,8 @@ Cuando subas el proyecto a GitHub, activa GitHub Pages desde la rama principal p
 ```text
 https://pepeangell5.github.io/BWifiKill-ESP32-V4.0/
 ```
+
+<p align="right"><a href="#indice">Regresar al indice</a></p>
 
 ## Estructura del proyecto
 
@@ -305,6 +319,8 @@ BWifiKill-ESP32-V4.0/
 `-- README.md             Documentacion principal
 ```
 
+<p align="right"><a href="#indice">Regresar al indice</a></p>
+
 ## Diferencias V3.3 vs V4.0
 
 | Area | V3.3 | V4.0 |
@@ -317,11 +333,15 @@ BWifiKill-ESP32-V4.0/
 | Comunicacion nRF | No era foco principal | Agrega nRF Link y nRF Chat entre dispositivos propios. |
 | Documentacion | Basica | README profesional, tablas, imagenes, flasher y binarios. |
 
+<p align="right"><a href="#indice">Regresar al indice</a></p>
+
 ## Redes sociales
 
 - Instagram: [@pepeangelll](https://www.instagram.com/pepeangelll)
 - GitHub: [pepeangell5](https://github.com/pepeangell5)
 - Facebook: [esp32tools](https://www.facebook.com/esp32tools)
+
+<p align="right"><a href="#indice">Regresar al indice</a></p>
 
 ## Disclaimer
 
@@ -329,6 +349,10 @@ Este firmware se publica con fines educativos, de investigacion, aprendizaje de 
 
 El autor no se hace responsable por danos, interrupciones, perdida de datos, uso indebido o consecuencias legales derivadas del uso de este proyecto.
 
+<p align="right"><a href="#indice">Regresar al indice</a></p>
+
 ## Licencia
 
 Distribuido bajo licencia MIT. Consulta [LICENSE](LICENSE) para mas detalles.
+
+<p align="right"><a href="#indice">Regresar al indice</a></p>
