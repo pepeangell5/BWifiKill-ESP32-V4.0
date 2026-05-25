@@ -34,7 +34,8 @@ static const uint8_t ILLEGAL_APPS[] = {
     10, // BEACON SPAM
     11, // BLE SPAM (POP)
     12, // MODO HIBRIDO
-    13  // EVIL PORTAL
+    13, // EVIL PORTAL
+    29  // DEAUTHER
 };
 
 static const uint8_t GAMES_APPS[] = {

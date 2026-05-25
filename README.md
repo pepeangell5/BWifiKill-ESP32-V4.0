@@ -44,6 +44,7 @@ BWifiKill ESP32 V4.0 es una suite portatil para laboratorio, aprendizaje y audit
 - Bluetooth Scanner mejorado con fabricante, RSSI y vista de detalles.
 - BT Analyzer y BT Spectrum para lectura visual de actividad BLE.
 - IP Scanner mejorado con lista de hosts detectados y acciones de diagnostico.
+- Nueva funcion restringida Deauther para laboratorio propio y pruebas autorizadas.
 - Juegos reorganizados dentro de Arcade.
 - Web Dashboard con AP dedicado: `BWifiKill_V4`, password `bwifikill40`, IP `192.168.4.1`.
 
@@ -256,6 +257,7 @@ Estas funciones existen para pruebas controladas y educacion. No deben ejecutars
 | BLE Spam (POP) | Emision BLE de laboratorio para revisar respuesta de dispositivos propios. |
 | Modo Hibrido | Combina pruebas WiFi/RF en un flujo de laboratorio controlado. |
 | Evil Portal | Portal cautivo local para capacitacion y pruebas autorizadas de concientizacion. |
+| Deauther | Funcion de laboratorio para pruebas controladas de gestion WiFi en redes propias o con autorizacion explicita. |
 
 ### Games
 

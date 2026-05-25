@@ -1,0 +1,17 @@
+Abre PowerShell y ejecuta este comando (reemplaza PepeAngell con tu usuario si aplica —
+
+C:\Users\PepeAngell\.platformio\packages\toolchain-xtensa-esp32\bin\xtensa-esp32-elf-objcopy.exe --weaken-symbol=ieee80211_raw_frame_sanity_check C:\Users\PepeAngell\.platformio\packages\framework-arduinoespressif32\tools\sdk\esp32\lib\libnet80211.a C:\Users\PepeAngell\.platformio\packages\framework-arduinoespressif32\tools\sdk\esp32\lib\libnet80211.a
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PATCH · anula la validacion de frames 802.11
+//  Este override solo funciona si se aplico el comando objcopy --weaken-symbol
+//  sobre libnet80211.a (ver README del proyecto)
+// ═══════════════════════════════════════════════════════════════════════════
+extern "C" int ieee80211_raw_frame_sanity_check(int32_t arg,
+                                                 int32_t arg2,
+                                                 int32_t arg3) {
+    return 0;   // siempre permitir
+}
