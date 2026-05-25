@@ -23,7 +23,6 @@ BWifiKill ESP32 V4.0 es una suite portatil para laboratorio, aprendizaje y audit
 - [Galeria](#galeria)
 - [Funciones del firmware](#funciones-del-firmware)
 - [Instalacion y flasheo](#instalacion-y-flasheo)
-- [Web Flasher](#web-flasher)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Diferencias V3.3 vs V4.0](#diferencias-v33-vs-v40)
 - [Redes sociales](#redes-sociales)
@@ -146,30 +145,61 @@ Los dos nRF comparten el bus SPI. Solo cambian `CE` y `CSN`.
 
 ## Galeria
 
-### Categorias
+### WiFi
 
-<p align="center">
-  <img src="img/Firmware/wifi/cat-wifi.JPG" width="30%" alt="Categoria WiFi">
-  <img src="img/Firmware/rf/cat-rf.JPG" width="30%" alt="Categoria RF Tools">
-  <img src="img/Firmware/bluetooth/cat-bt.JPG" width="30%" alt="Categoria Bluetooth">
-</p>
-<p align="center">
-  <img src="img/Firmware/ilegal/cat-ilegal.JPG" width="30%" alt="Categoria Ilegal">
-  <img src="img/Firmware/games/cat-games.JPG" width="30%" alt="Categoria Games">
-  <img src="img/Firmware/system/cat-system.JPG" width="30%" alt="Categoria Sistema">
-</p>
+| Categoria | WiFi Scanner | WiFi Radar | Channel Scan |
+| --- | --- | --- | --- |
+| <img src="img/Firmware/wifi/cat-wifi.JPG" width="220" alt="Categoria WiFi"> | <img src="img/Firmware/wifi/wifi-scanner.JPG" width="220" alt="WiFi Scanner"> | <img src="img/Firmware/wifi/wifi-radar.JPG" width="220" alt="WiFi Radar"> | <img src="img/Firmware/wifi/chanel-scan.JPG" width="220" alt="Channel Scan"> |
 
-### Capturas por categoria
+| Packet Monitor | Modo Centinela | IP Scanner | Web Dashboard |
+| --- | --- | --- | --- |
+| <img src="img/Firmware/wifi/packet-monitor.JPG" width="220" alt="Packet Monitor"> | <img src="img/Firmware/wifi/centinela.JPG" width="220" alt="Modo Centinela"> | <img src="img/Firmware/wifi/ip-scanner.JPG" width="220" alt="IP Scanner"> | <img src="img/Firmware/wifi/web-dashboard.JPG" width="220" alt="Web Dashboard"> |
 
-| WiFi | RF Tools | Bluetooth |
+### RF Tools
+
+| Categoria | Analizador | RF Heatmap | CH Advisor |
+| --- | --- | --- | --- |
+| <img src="img/Firmware/rf/cat-rf.JPG" width="220" alt="Categoria RF Tools"> | <img src="img/Firmware/rf/analizador.JPG" width="220" alt="Analizador"> | <img src="img/Firmware/rf/heatmap.JPG" width="220" alt="RF Heatmap"> | <img src="img/Firmware/rf/advisor.JPG" width="220" alt="CH Advisor"> |
+
+| nRF Link | nRF Chat | BT/WiFi Coex | Dual nRF Scope |
+| --- | --- | --- | --- |
+| <img src="img/Firmware/rf/nrf-link.JPG" width="220" alt="nRF Link"> | <img src="img/Firmware/rf/nrf-chat.JPG" width="220" alt="nRF Chat"> | <img src="img/Firmware/rf/coex.JPG" width="220" alt="BT WiFi Coex"> | <img src="img/Firmware/rf/dual-scope.JPG" width="220" alt="Dual nRF Scope"> |
+
+### Bluetooth
+
+| Categoria | BT Scanner | BT Analyzer |
 | --- | --- | --- |
-| <img src="img/Firmware/wifi/wifi-scanner.JPG" width="260" alt="WiFi Scanner"> | <img src="img/Firmware/rf/heatmap.JPG" width="260" alt="RF Heatmap"> | <img src="img/Firmware/bluetooth/bt-analyzer.JPG" width="260" alt="BT Analyzer"> |
-| <img src="img/Firmware/wifi/wifi-radar.JPG" width="260" alt="WiFi Radar"> | <img src="img/Firmware/rf/dual-scope.JPG" width="260" alt="Dual nRF Scope"> | <img src="img/Firmware/bluetooth/bt-spectrum.JPG" width="260" alt="BT Spectrum"> |
+| <img src="img/Firmware/bluetooth/cat-bt.JPG" width="260" alt="Categoria Bluetooth"> | <img src="img/Firmware/bluetooth/bt-scann.JPG" width="260" alt="BT Scanner"> | <img src="img/Firmware/bluetooth/bt-analyzer.JPG" width="260" alt="BT Analyzer"> |
 
-| Sistema | Games | Zona restringida |
+| BT Spectrum | BT Remote |
+| --- | --- |
+| <img src="img/Firmware/bluetooth/bt-spectrum.JPG" width="260" alt="BT Spectrum"> | <img src="img/Firmware/bluetooth/bt-remote.JPG" width="260" alt="BT Remote"> |
+
+### Zona restringida
+
+| Categoria | Jammer Canal | Barrido Total | BT Jammer |
+| --- | --- | --- | --- |
+| <img src="img/Firmware/ilegal/cat-ilegal.JPG" width="220" alt="Categoria Ilegal"> | <img src="img/Firmware/ilegal/jam-canal.JPG" width="220" alt="Jammer Canal"> | <img src="img/Firmware/ilegal/barrido-total.JPG" width="220" alt="Barrido Total"> | <img src="img/Firmware/ilegal/jam-bt.JPG" width="220" alt="BT Jammer"> |
+
+| Beacon Spam | BLE Spam | Modo Hibrido | Evil Portal |
+| --- | --- | --- | --- |
+| <img src="img/Firmware/ilegal/beacon-spam.JPG" width="220" alt="Beacon Spam"> | <img src="img/Firmware/ilegal/ble-spam.JPG" width="220" alt="BLE Spam"> | <img src="img/Firmware/ilegal/hybrid.JPG" width="220" alt="Modo Hibrido"> | <img src="img/Firmware/ilegal/evil-portal.JPG" width="220" alt="Evil Portal"> |
+
+### Games
+
+| Categoria | Snake | Pong |
 | --- | --- | --- |
-| <img src="img/Firmware/system/about.JPG" width="260" alt="About"> | <img src="img/Firmware/games/pong.JPG" width="260" alt="Pong"> | <img src="img/Firmware/ilegal/evil-portal.JPG" width="260" alt="Evil Portal"> |
-| <img src="img/Firmware/system/logs.JPG" width="260" alt="Logs"> | <img src="img/Firmware/games/flappy.JPG" width="260" alt="Flappy"> | <img src="img/Firmware/ilegal/ble-spam.JPG" width="260" alt="BLE Spam"> |
+| <img src="img/Firmware/games/cat-games.JPG" width="260" alt="Categoria Games"> | <img src="img/Firmware/games/snake.JPG" width="260" alt="Snake"> | <img src="img/Firmware/games/pong.JPG" width="260" alt="Pong"> |
+
+| Flappy | Invaders | Dino |
+| --- | --- | --- |
+| <img src="img/Firmware/games/flappy.JPG" width="260" alt="Flappy"> | <img src="img/Firmware/games/invaders.JPG" width="260" alt="Invaders"> | <img src="img/Firmware/games/dino.JPG" width="260" alt="Dino"> |
+
+### Sistema
+
+| Categoria | Control Esclavo | Leer Logs | About |
+| --- | --- | --- | --- |
+| <img src="img/Firmware/system/cat-system.JPG" width="220" alt="Categoria Sistema"> | <img src="img/Firmware/system/control-slave.JPG" width="220" alt="Control Esclavo"> | <img src="img/Firmware/system/logs.JPG" width="220" alt="Leer Logs"> | <img src="img/Firmware/system/about.JPG" width="220" alt="About"> |
 
 <p align="right"><a href="#indice">Regresar al indice</a></p>
 
@@ -282,22 +312,6 @@ Si usas VS Code:
 2. Abre la carpeta del proyecto.
 3. Conecta el ESP32.
 4. Presiona `Upload`.
-
-<p align="right"><a href="#indice">Regresar al indice</a></p>
-
-## Web Flasher
-
-El proyecto incluye un instalador web basado en ESP Web Tools:
-
-- `index.html`: pagina del instalador.
-- `manifest.json`: configuracion usada por el boton de instalacion.
-- `binarios/`: carpeta con los binarios de release.
-
-Cuando subas el proyecto a GitHub, activa GitHub Pages desde la rama principal para que el flasher quede disponible en:
-
-```text
-https://pepeangell5.github.io/BWifiKill-ESP32-V4.0/
-```
 
 <p align="right"><a href="#indice">Regresar al indice</a></p>
 
