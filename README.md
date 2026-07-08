@@ -9,7 +9,7 @@
 
 [![Web Flasher](https://img.shields.io/badge/Web%20Flasher-Instalar%20V4.0-00ff66?style=for-the-badge)](https://pepeangell5.github.io/BWifiKill-ESP32-V4.0/)
 [![GitHub](https://img.shields.io/badge/GitHub-pepeangell5-181717?style=for-the-badge&logo=github)](https://github.com/pepeangell5)
-[![Instagram](https://img.shields.io/badge/Instagram-pepeangelll-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://www.instagram.com/pepeangelll)
+[![Instagram](https://img.shields.io/badge/Instagram-esp32_tools-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://www.instagram.com/esp32_tools)
 [![Facebook](https://img.shields.io/badge/Facebook-esp32tools-1877F2?style=for-the-badge&logo=facebook&logoColor=white)](https://www.facebook.com/esp32tools)
 
 BWifiKill ESP32 V4.0 es una suite portatil para laboratorio, aprendizaje y auditoria autorizada de redes WiFi, Bluetooth y actividad RF en 2.4 GHz. Esta version reorganiza el firmware por categorias, mejora la interfaz OLED, agrega herramientas pasivas nuevas y deja el proyecto listo para instalar por Web Flasher o PlatformIO.
@@ -358,7 +358,7 @@ BWifiKill-ESP32-V4.0/
 
 ## Redes sociales
 
-- Instagram: [@pepeangelll](https://www.instagram.com/pepeangelll)
+- Instagram: [@esp32_tools](https://www.instagram.com/esp32_tools)
 - GitHub: [pepeangell5](https://github.com/pepeangell5)
 - Facebook: [esp32tools](https://www.facebook.com/esp32tools)
 
